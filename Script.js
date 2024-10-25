@@ -157,11 +157,17 @@ function getResponse(userInput) {
     // Try to find recipes with decreasing number of ingredient matches
     for (let targetMatches = ingredients.length; targetMatches > 0; targetMatches--) {
         const recipe = findRecipesByIngredientCount(ingredients, targetMatches);
+        
         if (recipe) {
-            if (targetMatches === ingredients.length) {
+            const recipeIngredients = cookbook[recipe]; // Get ingredients for the found recipe
+            const additionalIngredients = recipeIngredients.filter(ing => 
+                !ingredients.includes(ing.toLowerCase())
+            );
+
+            if (additionalIngredients.length === 0) {
                 return `Perfect! You can make ${recipe} using those ingredients.`;
             } else {
-                return `I found a recipe that uses ${targetMatches} of your ingredients: ${recipe}`;
+                return `You might be able to make ${recipe}, but you'll need additional ingredients: ${additionalIngredients.join(', ')}.`;
             }
         }
     }
