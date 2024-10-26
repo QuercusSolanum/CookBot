@@ -1,3 +1,4 @@
+// Recipe database mapping 58 recipe names to their required ingredients
 const cookbook = {
     "Pasta Salad": ["pasta", "tomato", "olive oil"],
     "Omelette": ["eggs", "cheese", "milk", "butter"],
@@ -59,6 +60,11 @@ const cookbook = {
     "Vegetable Tacos": ["taco shells", "vegetables", "avocado", "sour cream"]
 };
 
+/**
+ * Handles the send message button click event
+ * Displays user message in chat window
+ */
+
 function sendMessage() {
     const userInput = document.getElementById("user-input").value;
     if (userInput.trim() === "") return;
@@ -68,12 +74,18 @@ function sendMessage() {
     userMessage.innerHTML = `<p>${userInput}</p>`;
     document.getElementById("chat-window").appendChild(userMessage);
 
+    // Clear user input and scroll to the bottom
     document.getElementById("user-input").value = "";
     document.getElementById("chat-window").scrollTop = document.getElementById("chat-window").scrollHeight;
 
+    // Have a delayed bot response to simulate thinking
     setTimeout(() => botResponse(userInput), 500);
 }
 
+/**
+ * Displays bot's response message
+ * @param {string} userInput user's original input
+ */
 function botResponse(userInput) {
     const response = getResponse(userInput);
     
@@ -88,6 +100,11 @@ function botResponse(userInput) {
     document.getElementById("chat-window").scrollTop = document.getElementById("chat-window").scrollHeight;
 }
 
+/**
+ * Extracts out ingredients from user input by cleaning up the text
+ * @param {string} userInput raw user input text
+ * @returns {string[]} array of identified ingredient names
+ */
 function extractIngredients(userInput) {
     // Convert input to lowercase
     let processedInput = userInput.toLowerCase();
@@ -128,25 +145,52 @@ function extractIngredients(userInput) {
     return ingredients;
 }
 
+/**
+ * Finds recipes that match the given ingredients with specified match count
+ * if only one ingredient was mentioned, it must give back a recipe with the ingredient or null
+ * if 2+ ingredients were mentioned, partially matching recipes are allowed
+ * @param {string[]} ingredients array of ingredients mentioned in user's input
+ * @param {number} targetCount minimum number of matching ingredients required
+ * @returns {Object|null} object containing matched recipe answer or null if no match
+ */
 function findRecipesByIngredientCount(ingredients, targetCount) {
     for (const [recipe, recipeIngredients] of Object.entries(cookbook)) {
         const normalizedRecipeIngredients = recipeIngredients.map(ing => ing.toLowerCase());
         let matchCount = 0;
+        const unmatchedIngredients = new Set(normalizedRecipeIngredients);
         
         for (const userIngredient of ingredients) {
-            if (normalizedRecipeIngredients.some(recipeIng => 
-                userIngredient.includes(recipeIng) || recipeIng.includes(userIngredient))) {
-                matchCount++;
+            // Split user ingredient by spaces to handle multiple words
+            const userIngredientWords = userIngredient.trim().split(/\s+/);
+            
+            for (const recipeIng of normalizedRecipeIngredients) {
+                // Check if any word in user ingredient matches the recipe ingredient
+                if (userIngredientWords.some(word => 
+                    word === recipeIng || // Exact match
+                    recipeIng.includes(word) && word.length > 2 // If more 2+ ingredients were mentioned, partial match is valid
+                )) {
+                    matchCount++;
+                    unmatchedIngredients.delete(recipeIng);
+                    break;
+                }
             }
         }
         
         if (matchCount >= targetCount) {
-            return recipe; // Return the first matching recipe
+            return {
+                recipe,
+                additionalIngredients: Array.from(unmatchedIngredients)
+            };
         }
     }
     return null;
 }
 
+/**
+ * Generates a response based on user input and available recipes
+ * @param {string} userInput raw user input
+ * @returns {string} response message with recipe match and additional ingredients needed (if applicable)
+ */
 function getResponse(userInput) {
     const ingredients = extractIngredients(userInput);
     
@@ -154,15 +198,12 @@ function getResponse(userInput) {
         return "I couldn't find any ingredients in your message. Please specify ingredients for me to check.";
     }
     
-    // Try to find recipes with decreasing number of ingredient matches
+    // Try decreasing numbers of required matches until a recipe is found
     for (let targetMatches = ingredients.length; targetMatches > 0; targetMatches--) {
-        const recipe = findRecipesByIngredientCount(ingredients, targetMatches);
+        const result = findRecipesByIngredientCount(ingredients, targetMatches);
         
-        if (recipe) {
-            const recipeIngredients = cookbook[recipe]; // Get ingredients for the found recipe
-            const additionalIngredients = recipeIngredients.filter(ing => 
-                !ingredients.includes(ing.toLowerCase())
-            );
+        if (result) {
+            const { recipe, additionalIngredients } = result;
 
             if (additionalIngredients.length === 0) {
                 return `Perfect! You can make ${recipe} using those ingredients.`;
@@ -175,7 +216,7 @@ function getResponse(userInput) {
     return "Sorry, I couldn't find any recipes with those ingredients.";
 }
 
-// Add enter key support
+// Allows sending messages by pressing enter key
 document.getElementById("user-input").addEventListener("keypress", function(event) {
     if (event.key === "Enter") {
         sendMessage();
