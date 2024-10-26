@@ -131,18 +131,17 @@ function extractIngredients(userInput) {
         processedInput = processedInput.replace(phrase, "");
     }
     
-    // Replace ", and " with just ","
-    processedInput = processedInput.replace(/, and /g, ',');
-    processedInput = processedInput.replace(/ and /g, ',');
+    // Replace ", and " or " and " with just ","
+    processedInput = processedInput.replace(/, and | and /g, ',');
     
-    // Split by commas and clean up
-    const ingredients = processedInput
-        .split(',')
-        .map(ingredient => ingredient.trim())
-        .filter(ingredient => ingredient.length > 0);
-    
-    console.log("Extracted ingredients:", ingredients);
-    return ingredients;
+   // Split by commas or spaces and clean up
+   const ingredients = processedInput
+   .split(/[,\s]+/)  // Split by commas or spaces
+   .map(ingredient => ingredient.trim())
+   .filter(ingredient => ingredient.length > 0);
+
+console.log("Extracted ingredients:", ingredients);
+return ingredients;
 }
 
 /**
@@ -158,16 +157,15 @@ function findRecipesByIngredientCount(ingredients, targetCount) {
         const normalizedRecipeIngredients = recipeIngredients.map(ing => ing.toLowerCase());
         let matchCount = 0;
         const unmatchedIngredients = new Set(normalizedRecipeIngredients);
-        
+
         for (const userIngredient of ingredients) {
-            // Split user ingredient by spaces to handle multiple words
             const userIngredientWords = userIngredient.trim().split(/\s+/);
-            
+
             for (const recipeIng of normalizedRecipeIngredients) {
-                // Check if any word in user ingredient matches the recipe ingredient
+                // Check if each user ingredient word exactly matches or is a partial match (length > 2)
                 if (userIngredientWords.some(word => 
-                    word === recipeIng || // Exact match
-                    recipeIng.includes(word) && word.length > 2 // If more 2+ ingredients were mentioned, partial match is valid
+                    word === recipeIng || 
+                    (recipeIng.includes(word) && word.length > 2)  // Controlled partial match for longer inputs
                 )) {
                     matchCount++;
                     unmatchedIngredients.delete(recipeIng);
@@ -175,16 +173,17 @@ function findRecipesByIngredientCount(ingredients, targetCount) {
                 }
             }
         }
-        
+
         if (matchCount >= targetCount) {
             return {
                 recipe,
-                additionalIngredients: Array.from(unmatchedIngredients)
+                additionalIngredients: Array.from(unmatchedIngredients)  // Adds extra ingredients needed
             };
         }
     }
     return null;
 }
+
 
 /**
  * Generates a response based on user input and available recipes
@@ -197,8 +196,7 @@ function getResponse(userInput) {
     if (ingredients.length === 0) {
         return "I couldn't find any ingredients in your message. Please specify ingredients for me to check.";
     }
-    
-    // Try decreasing numbers of required matches until a recipe is found
+
     for (let targetMatches = ingredients.length; targetMatches > 0; targetMatches--) {
         const result = findRecipesByIngredientCount(ingredients, targetMatches);
         
